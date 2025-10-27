@@ -1,0 +1,423 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cinematic Captions- Generator Subtitle Film</title>
+    <!-- Memuat Tailwind CSS --><script src="https://cdn.tailwindcss.com"></script>
+    <!-- Konfigurasi Font Inter (Default Tailwind) --><style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap');
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f7f7f7;
+        }
+        /* Style untuk drag-and-drop area */
+        #drop-zone {
+            border: 2px dashed #a0aec0;
+            transition: border-color 0.3s ease;
+        }
+        #drop-zone.drag-over {
+            border-color: #4299e1;
+            background-color: #ebf8ff;
+        }
+        /* Mengatur agar canvas mengisi area div parent */
+        #canvas-wrapper {
+            position: relative;
+            width: 100%;
+            height: auto; /* Agar tinggi menyesuaikan rasio canvas */
+            overflow: hidden; /* Penting untuk cropping */
+            display: flex; /* Untuk memusatkan canvas */
+            align-items: center; /* Untuk memusatkan canvas */
+            justify-content: center; /* Untuk memusatkan canvas */
+            background-color: #000; /* Latar belakang hitam untuk area yang dipotong */
+        }
+        #subtitleCanvas {
+            max-width: 100%;
+            height: auto;
+            display: block; /* Menghilangkan spasi ekstra di bawah gambar */
+        }
+    </style>
+</head>
+<body class="p-4 md:p-8 min-h-screen">
+
+    <div class="max-w-7xl mx-auto">
+        <h1 class="text-3xl md:text-4xl font-bold text-gray-800 mb-6 border-b pb-2">
+            Cinematic Captions <span class="text-gray-500 text-2xl font-normal">(Cinematic Ratio)</span>
+        </h1>
+        <p class="text-gray-600 mb-8">
+            Unggah foto Anda, sesuaikan rasio film, dan tambahkan subtitle bergaya film.
+        </p>
+
+        <div class="flex flex-col lg:flex-row gap-8">
+
+            <!-- KONTROL (Kiri/Atas) --><div class="lg:w-1/3 bg-white p-6 rounded-xl shadow-lg h-full sticky top-8">
+                <h2 class="text-xl font-semibold mb-4 text-gray-700">1. Unggah Foto</h2>
+
+                <!-- Area Unggah & Drop --><div id="drop-zone" class="p-6 text-center rounded-lg cursor-pointer mb-6" onclick="document.getElementById('fileInput').click()">
+                    <input type="file" id="fileInput" accept="image/*" class="hidden">
+                    <p class="text-gray-500 font-medium">Seret & Lepas Gambar di Sini</p>
+                    <p class="text-sm text-gray-400 mt-1">atau Klik untuk Memilih File (JPEG, PNG)</p>
+                </div>
+
+                <div id="image-info" class="mb-6 text-sm text-gray-600 italic hidden">
+                    Gambar Terunggah: <span id="image-name" class="font-semibold"></span>
+                </div>
+
+                <!-- Rasio Aspek --><h2 class="text-xl font-semibold mb-4 text-gray-700">2. Rasio Aspek Gambar</h2>
+                <div class="mb-6 flex gap-4">
+                    <label class="inline-flex items-center">
+                        <input type="radio" name="aspectRatio" value="original" checked class="form-radio h-4 w-4 text-blue-600">
+                        <span class="ml-2 text-gray-700">Original</span>
+                    </label>
+                    <label class="inline-flex items-center">
+                        <input type="radio" name="aspectRatio" value="16:9" class="form-radio h-4 w-4 text-blue-600">
+                        <span class="ml-2 text-gray-700">16:9 (HD TV)</span>
+                    </label>
+                    <label class="inline-flex items-center">
+                        <input type="radio" name="aspectRatio" value="21:9" class="form-radio h-4 w-4 text-blue-600">
+                        <span class="ml-2 text-gray-700">21:9 (Ultrawide/Anamorphic)</span>
+                    </label>
+                </div>
+
+                <!-- Input Subtitle --><h2 class="text-xl font-semibold mb-4 text-gray-700">3. Teks Subtitle</h2>
+                <textarea id="subtitleText" class="w-full h-24 p-3 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500" placeholder="Ketik subtitle Anda di sini (maks 3 baris)..." maxlength="150"></textarea>
+                <p class="text-xs text-gray-500 mt-1 mb-6">Mendukung hingga 3 baris teks. Tekan Enter untuk baris baru.</p>
+
+
+                <!-- Pengaturan Gaya --><h2 class="text-xl font-semibold mb-4 text-gray-700">4. Pengaturan Gaya Subtitle</h2>
+
+                <!-- Font --><div class="mb-4">
+                    <label for="fontSelect" class="block text-sm font-medium text-gray-700">Font</label>
+                    <select id="fontSelect" class="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm rounded-md">
+                        <option value="Inter, sans-serif">Inter (Modern)</option>
+                        <option value="Arial, sans-serif">Arial (Klasik)</option>
+                        <option value="Helvetica, sans-serif">Helvetica</option>
+                        <option value="'Times New Roman', serif">Times New Roman</option>
+                    </select>
+                </div>
+
+                <!-- Ukuran Teks Subtitle --><div class="mb-4">
+                    <label for="fontSize" class="block text-sm font-medium text-gray-700">Ukuran Teks Subtitle (<span id="fontSizeValue">5</span>%)</label>
+                    <input type="range" id="fontSize" min="3" max="10" value="5" step="0.5" class="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer">
+                </div>
+                 
+                <div class="flex gap-4 mb-4">
+                    <!-- Warna Teks --><div class="w-1/2">
+                        <label for="textColor" class="block text-sm font-medium text-gray-700">Warna Teks</label>
+                        <input type="color" id="textColor" value="#FFFFFF" class="mt-1 block h-10 w-full rounded-md border border-gray-300 p-1 cursor-pointer">
+                    </div>
+
+                    <!-- Perataan --><div class="w-1/2">
+                        <label for="alignment" class="block text-sm font-medium text-gray-700">Perataan Subtitle</label>
+                        <select id="alignment" class="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm rounded-md">
+                            <option value="center">Tengah (Default)</option>
+                            <option value="left">Kiri</option>
+                            <option value="right">Kanan</option>
+                        </select>
+                    </div>
+                </div>
+
+                <!-- Efek Teks --><div class="mb-6">
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Efek Teks</label>
+                    <div class="flex items-center space-x-4">
+                        <label class="inline-flex items-center">
+                            <input type="radio" name="textEffect" value="outline" checked class="form-radio h-4 w-4 text-blue-600">
+                            <span class="ml-2 text-gray-700">Outline Hitam</span>
+                        </label>
+                        <label class="inline-flex items-center">
+                            <input type="radio" name="textEffect" value="shadow" class="form-radio h-4 w-4 text-blue-600">
+                            <span class="ml-2 text-gray-700">Drop Shadow</span>
+                        </label>
+                    </div>
+                </div>
+
+                <!-- Background Transparan (Opsional) --><div class="mb-6">
+                    <label class="inline-flex items-center">
+                        <input type="checkbox" id="transparentBg" class="form-checkbox h-5 w-5 text-blue-600 rounded">
+                        <span class="ml-2 text-gray-700">Tampilkan Latar Belakang Transparan</span>
+                    </label>
+                </div>
+
+                <!-- Tombol Unduh --><button id="downloadBtn" class="w-full bg-indigo-600 text-white font-semibold py-3 px-6 rounded-xl hover:bg-indigo-700 transition duration-150 shadow-md disabled:bg-indigo-300" disabled>
+                    Unduh Hasil Gambar
+                </button>
+            </div>
+
+            <!-- PRATINJAU (Kanan/Bawah) --><div class="lg:w-2/3 bg-gray-900 p-4 rounded-xl shadow-xl flex items-center justify-center min-h-96 relative">
+                <div id="canvas-wrapper" class="w-full h-full relative">
+                    <canvas id="subtitleCanvas"></canvas>
+                </div>
+                <div id="placeholder" class="absolute inset-0 flex items-center justify-center text-white/50 text-xl font-medium p-10 text-center">
+                    <p>Unggah foto Anda untuk melihat pratinjau di sini.</p>
+                </div>
+            </div>
+
+        </div>
+    </div>
+
+    <!-- Modal Pesan (Pengganti Alert) --><div id="messageModal" class="fixed inset-0 bg-gray-900 bg-opacity-75 hidden z-50 items-center justify-center">
+        <div class="bg-white p-6 rounded-lg shadow-xl max-w-sm w-full">
+            <h3 id="modalTitle" class="text-lg font-bold mb-3 text-red-600"></h3>
+            <p id="modalBody" class="text-gray-700 mb-4"></p>
+            <button id="modalCloseBtn" class="bg-indigo-600 text-white px-4 py-2 rounded hover:bg-indigo-700 float-right">Tutup</button>
+        </div>
+    </div>
+
+    <script>
+        // Variabel Global
+        const canvas = document.getElementById('subtitleCanvas');
+        const ctx = canvas.getContext('2d');
+        const fileInput = document.getElementById('fileInput');
+        // titleText dihapus
+        const subtitleText = document.getElementById('subtitleText');
+        const dropZone = document.getElementById('drop-zone');
+        const downloadBtn = document.getElementById('downloadBtn');
+        const placeholder = document.getElementById('placeholder');
+        const fontSizeSlider = document.getElementById('fontSize');
+        const fontSizeValue = document.getElementById('fontSizeValue');
+        // titleFontSizeSlider dan titleFontSizeValue dihapus
+        const imageInfo = document.getElementById('image-info');
+        const imageNameSpan = document.getElementById('image-name');
+        const aspectRatioRadios = document.querySelectorAll('input[name="aspectRatio"]');
+        const canvasWrapper = document.getElementById('canvas-wrapper');
+
+        let originalImage = null; // Menyimpan objek gambar asli
+
+        // --- Fungsi Modal (Pengganti Alert) ---
+        function showMessage(title, body, isError = false) {
+            document.getElementById('modalTitle').textContent = title;
+            document.getElementById('modalBody').textContent = body;
+            document.getElementById('modalTitle').className = isError ? 'text-lg font-bold mb-3 text-red-600' : 'text-lg font-bold mb-3 text-green-600';
+            document.getElementById('messageModal').classList.remove('hidden');
+            document.getElementById('messageModal').classList.add('flex');
+            document.getElementById('modalCloseBtn').onclick = () => {
+                document.getElementById('messageModal').classList.remove('flex');
+                document.getElementById('messageModal').classList.add('hidden');
+            };
+        }
+
+        // --- Core Logic: Menggambar di Canvas ---
+        function drawCanvas() {
+            if (!originalImage) return;
+
+            const selectedAspectRatio = document.querySelector('input[name="aspectRatio"]:checked').value;
+            let targetWidth, targetHeight;
+            let cropX = 0, cropY = 0, cropWidth = originalImage.width, cropHeight = originalImage.height;
+
+            // Tentukan target rasio dan hitung cropping
+            if (selectedAspectRatio === 'original') {
+                targetWidth = originalImage.width;
+                targetHeight = originalImage.height;
+            } else {
+                let ratio;
+                if (selectedAspectRatio === '16:9') ratio = 16 / 9;
+                else if (selectedAspectRatio === '21:9') ratio = 21 / 9;
+
+                const originalRatio = originalImage.width / originalImage.height;
+
+                if (originalRatio > ratio) { // Gambar terlalu lebar, potong horizontal
+                    cropHeight = originalImage.height;
+                    cropWidth = cropHeight * ratio;
+                    cropX = (originalImage.width - cropWidth) / 2;
+                } else { // Gambar terlalu tinggi, potong vertikal
+                    cropWidth = originalImage.width;
+                    cropHeight = cropWidth / ratio;
+                    cropY = (originalImage.height - cropHeight) / 2;
+                }
+
+                // Untuk display di canvas, kita ingin resolusi tetap tinggi agar tidak pecah
+                targetWidth = originalImage.width;
+                targetHeight = targetWidth / ratio;
+            }
+
+            // Atur ukuran canvas
+            canvas.width = targetWidth;
+            canvas.height = targetHeight;
+
+            // Gambar Background Hitam (untuk mengisi area yang mungkin kosong karena perubahan rasio)
+            ctx.fillStyle = '#000000';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            // Gambar Foto Asli (setelah di-crop jika perlu)
+            ctx.drawImage(originalImage, cropX, cropY, cropWidth, cropHeight, 0, 0, canvas.width, canvas.height);
+
+            // Ambil Pengaturan
+            const imageWidth = canvas.width;
+            const imageHeight = canvas.height;
+            const padding = imageHeight * 0.04; // Padding 4% dari tinggi gambar
+
+            const fontName = document.getElementById('fontSelect').value;
+            const textColor = document.getElementById('textColor').value;
+            const alignment = document.getElementById('alignment').value;
+            const effect = document.querySelector('input[name="textEffect"]:checked').value;
+            const showBg = document.getElementById('transparentBg').checked;
+
+            // --- Gambar Judul ---
+            // LOGIKA JUDUL DIHAPUS
+
+            // --- Gambar Subtitle ---
+            const subtitle = subtitleText.value.trim();
+            if (!subtitle) return; // Tidak perlu menggambar subtitle jika kosong
+
+            const lines = subtitle.split('\n').filter(l => l.trim() !== '');
+            const fontSizePercent = parseFloat(fontSizeSlider.value) / 100;
+            const effectiveFontSize = Math.round(imageHeight * fontSizePercent * 2);
+
+            ctx.font = `${effectiveFontSize}px ${fontName}`;
+            ctx.textAlign = alignment;
+            ctx.textBaseline = 'bottom';
+            ctx.fillStyle = textColor;
+
+            // Atur posisi awal X berdasarkan perataan
+            let startX;
+            if (alignment === 'left') {
+                startX = padding;
+            } else if (alignment === 'right') {
+                startX = imageWidth - padding;
+            } else { // center
+                startX = imageWidth / 2;
+            }
+
+            const lineHeight = effectiveFontSize * 1.2;
+            const totalTextHeight = lines.length * lineHeight;
+            let startY = imageHeight - padding; // Titik awal Y untuk baris teks paling bawah
+
+            // 4. (Opsional) Gambar Latar Belakang Transparan Subtitle
+            if (showBg) {
+                // Background Box
+                const bgHeight = totalTextHeight + padding * 0.5;
+                const bgY = imageHeight - bgHeight - (padding / 4);
+                ctx.fillStyle = 'rgba(0, 0, 0, 0.6)';
+                ctx.fillRect(0, bgY, imageWidth, bgHeight + padding / 4);
+            }
+
+            // 5. Gambar Teks Subtitle (Iterasi dari baris bawah ke atas)
+            for (let i = 0; i < lines.length; i++) {
+                const lineIndex = lines.length - 1 - i; // Indeks baris, dimulai dari baris terakhir
+                const line = lines[lineIndex];
+                const lineY = startY - (i * lineHeight);
+
+                // Efek Teks
+                if (effect === 'outline') {
+                    // Outline Hitam (Stroke)
+                    ctx.strokeStyle = '#000000';
+                    ctx.lineWidth = Math.max(2, effectiveFontSize * 0.05); // Garis outline relatif
+                    ctx.strokeText(line, startX, lineY);
+                } else if (effect === 'shadow') {
+                    // Drop Shadow
+                    ctx.shadowColor = 'rgba(0, 0, 0, 0.8)';
+                    ctx.shadowBlur = effectiveFontSize * 0.1;
+                    ctx.shadowOffsetX = effectiveFontSize * 0.03;
+                    ctx.shadowOffsetY = effectiveFontSize * 0.03;
+                }
+
+                // Gambar Teks Utama (Fill)
+                ctx.fillText(line, startX, lineY);
+
+                // Hapus shadow untuk elemen berikutnya (jika digunakan)
+                if (effect === 'shadow') {
+                    ctx.shadowBlur = 0;
+                    ctx.shadowOffsetX = 0;
+                    ctx.shadowOffsetY = 0;
+                }
+            }
+        }
+
+        // --- Handler Unggah Gambar ---
+        function handleImageUpload(file) {
+            if (file && file.type.startsWith('image/')) {
+                const reader = new FileReader();
+                reader.onload = function(event) {
+                    const img = new Image();
+                    img.onload = function() {
+                        originalImage = img;
+                        placeholder.classList.add('hidden');
+                        downloadBtn.disabled = false;
+                        imageNameSpan.textContent = file.name;
+                        imageInfo.classList.remove('hidden');
+                        drawCanvas(); // Gambar pertama kali setelah gambar dimuat
+                    };
+                    img.onerror = function() {
+                        showMessage("Kesalahan Memuat Gambar", "File gambar tidak dapat dimuat. Pastikan file valid.", true);
+                    };
+                    img.src = event.target.result;
+                };
+                reader.readAsDataURL(file);
+            } else if (file) {
+                 showMessage("Jenis File Tidak Didukung", "Silakan unggah file gambar (JPEG atau PNG).", true);
+            }
+        }
+
+        // --- Event Listeners ---
+
+        // 1. File Input Change
+        fileInput.addEventListener('change', (e) => {
+            if (e.target.files.length > 0) {
+                handleImageUpload(e.target.files[0]);
+            }
+        });
+
+        // 2. Drag and Drop Logic
+        dropZone.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            dropZone.classList.add('drag-over');
+        });
+        dropZone.addEventListener('dragleave', (e) => {
+            e.preventDefault();
+            dropZone.classList.remove('drag-over');
+        });
+        dropZone.addEventListener('drop', (e) => {
+            e.preventDefault();
+            dropZone.classList.remove('drag-over');
+            if (e.dataTransfer.files.length > 0) {
+                handleImageUpload(e.dataTransfer.files[0]);
+            }
+        });
+
+        // 3. Live Preview Listeners (redraw whenever controls change)
+        // titleText event listener dihapus
+        subtitleText.addEventListener('input', drawCanvas);
+        document.getElementById('fontSelect').addEventListener('change', drawCanvas);
+        document.getElementById('textColor').addEventListener('input', drawCanvas);
+        document.getElementById('alignment').addEventListener('change', drawCanvas);
+        document.getElementById('transparentBg').addEventListener('change', drawCanvas);
+        document.querySelectorAll('input[name="textEffect"]').forEach(radio => {
+            radio.addEventListener('change', drawCanvas);
+        });
+        aspectRatioRadios.forEach(radio => { // Rasio Aspek TETAP
+            radio.addEventListener('change', drawCanvas);
+        });
+
+        // Update Slider Value and Redraw
+        fontSizeSlider.addEventListener('input', () => {
+            fontSizeValue.textContent = fontSizeSlider.value;
+            drawCanvas();
+        });
+        // titleFontSizeSlider event listener dihapus
+
+
+        // 4. Download Button
+        downloadBtn.addEventListener('click', () => {
+            if (originalImage) {
+                // Panggil drawCanvas sekali lagi untuk memastikan preview terbaru ada di canvas
+                drawCanvas();
+
+                // Konversi canvas ke URL data dan buat tautan unduh
+                const dataURL = canvas.toDataURL('image/png');
+                const a = document.createElement('a');
+                a.href = dataURL;
+                a.download = `cinematic-caption_${Date.now()}.png`;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                showMessage("Berhasil!", "Gambar dengan subtitle berhasil diunduh.", false);
+            }
+        });
+
+        // Pastikan ukuran slider ditampilkan saat dimuat
+        fontSizeValue.textContent = fontSizeSlider.value;
+        // titleFontSizeValue dihapus
+
+    </script>
+</body>
+</html>
